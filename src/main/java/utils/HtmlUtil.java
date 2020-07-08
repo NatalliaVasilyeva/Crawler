@@ -2,12 +2,12 @@ package utils;
 
 import lombok.SneakyThrows;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -20,46 +20,61 @@ public class HtmlUtil {
 
 
     @SneakyThrows
-    public String getContentFromPage(String url)  {
-           return Jsoup.connect(getUri(url))
-                   .sslSocketFactory(socketFactory())
-                   .ignoreHttpErrors(true)
-                   .userAgent("Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Gecko/20100101 Firefox/25.0")
-                   .get()
-                   .body()
-                   .html();
+    public String getContentFromPage(String url) {
+        Element element = Jsoup.connect(getUri(url))
+                .sslSocketFactory(socketFactory())
+                .ignoreHttpErrors(true)
+                .timeout(1000000)
+                .userAgent("Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Gecko/20100101 Firefox/25.0")
+                .get()
+                .body();
+        if (element != null) return element.html();
+        return " ";
 
     }
 
     @SneakyThrows
-    public String getUri(String url)  {
-        return new URI(url).normalize().toURL().toString();
+    public Element getElementFromPage(String url) {
+        return  Jsoup.connect(getUri(url))
+                .sslSocketFactory(socketFactory())
+                .ignoreHttpErrors(true)
+                .timeout(1000000)
+                .userAgent("Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:25.0) Gecko/20100101 Firefox/25.0")
+                .get()
+                .body();
+
     }
 
 
-//    private  String normalizeUrl(String urlString) throws URISyntaxException, MalformedURLException {
-//        if (urlString == null || urlString.length()==0) {
-//            return null;
-//        }
-//        URI uri = new URI(urlString);
-//
-//        if (!uri.isAbsolute()) {
-//            throw new URISyntaxException(urlString, "Must provide an absolute URI for repositories");
-//        }
-//
-//        uri = uri.normalize();
-//        String path = uri.getPath();
-//        if (path != null) {
-//            path = path.replaceAll("//*/", "/"); // Collapse multiple forward slashes into 1.
-//            if (path.length() > 0 && path.charAt(path.length() - 1) == '/') {
-//                path = path.substring(0, path.length() - 1);
-//            }
-//        }
-//       String uril = new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),
-//               path, uri.getQuery(), uri.getFragment()).toURL().toString();
-//        System.out.println(uril);
-//        return uril;
-//    }
+    @SneakyThrows
+    public String getUri(String url) {
+        return normalizeUrl(url);
+    }
+
+
+    private String normalizeUrl(String urlString) throws URISyntaxException, MalformedURLException {
+        if (urlString == null || urlString.length() == 0) {
+            return null;
+        }
+        URI uri = new URI(urlString);
+
+        if (!uri.isAbsolute()) {
+            throw new URISyntaxException(urlString, "Must provide an absolute URI for repositories");
+        }
+
+        uri = uri.normalize();
+        String path = uri.getPath();
+        if (path != null) {
+            path = path.replaceAll("//*/", "/"); // Collapse multiple forward slashes into 1.
+            if (path.length() > 0 && path.charAt(path.length() - 1) == '/') {
+                path = path.substring(0, path.length() - 1);
+            }
+        }
+        String uril = new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),
+                path, uri.getQuery(), uri.getFragment()).toURL().toString();
+        System.out.println(uril);
+        return uril;
+    }
 
     static private SSLSocketFactory socketFactory() {
         TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {

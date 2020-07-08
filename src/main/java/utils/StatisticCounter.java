@@ -10,7 +10,6 @@ import java.util.regex.Pattern;
 public class StatisticCounter {
 
     private static String regex = "%s";
-    private static String example = ":matchesOwn((?i)%s)";
 
     public ConcurrentHashMap<String, Long> getAllKeyWordsCountPerOnePage(String htmlBodyAsString, Set<String> keyWords) {
         String pageContent = Jsoup.parse(htmlBodyAsString).body().text();

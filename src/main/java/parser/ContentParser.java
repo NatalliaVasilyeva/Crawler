@@ -2,19 +2,21 @@ package parser;
 
 import entity.SearchParams;
 import entity.Statistics;
+import org.apache.commons.validator.routines.UrlValidator;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import utils.ConcurrentHashSet;
 import utils.HtmlUtil;
 import utils.LinksUtil;
 import utils.StatisticCounter;
 import warehouse.LinkWarehouse;
 import warehouse.StatisticWarehouse;
 
-import java.io.IOException;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 
 public class ContentParser {
@@ -25,11 +27,11 @@ public class ContentParser {
     private HtmlUtil htmlUtil;
     private LinksUtil linksUtil;
     private StatisticCounter statisticCounter;
-    private AtomicLong linkLimit = new AtomicLong(1);
-    private AtomicInteger currentDepth = new AtomicInteger(1);
+    private AtomicLong linkCounter = new AtomicLong(1);
+    public static AtomicInteger currentDepth = new AtomicInteger(0);
 
     public ContentParser(SearchParams searchParams, HtmlUtil htmlUtil, LinksUtil linksUtil, StatisticCounter statisticCounter) {
-        this.searchParams=searchParams;
+        this.searchParams = searchParams;
         this.htmlUtil = htmlUtil;
         this.linksUtil = linksUtil;
         this.statisticCounter = statisticCounter;
@@ -37,37 +39,53 @@ public class ContentParser {
 
 
     public void startCrawling(SearchParams searchParam) {
-        String url = searchParam.getUrl();
-        System.out.println(url);
-        String pageContent = htmlUtil.getContentFromPage(url).toLowerCase();
-        ConcurrentHashMap<String, Long> statisticForOnePage = statisticCounter.getAllKeyWordsCountPerOnePage(pageContent, searchParams.getKeyWords());
-        statisticWarehouse.getStatistics().add(new Statistics(url, statisticForOnePage));
-        linkLimit.incrementAndGet();
-        if(!((currentDepth.incrementAndGet()>searchParams.getDepth()) || linkLimit.get()>searchParam.getLinksCount())) {
-            craw(pageContent);
+        searchLinks(searchParam);
+        craw(linkWarehouse.getStatistics());
+      }
+
+    public void craw(ConcurrentHashSet<String> links) {
+
+        links.forEach(link -> {
+            String pageContent = htmlUtil.getContentFromPage(link).toLowerCase();
+            ConcurrentHashMap<String, Long> statisticForOnePage = statisticCounter.getAllKeyWordsCountPerOnePage(pageContent, searchParams.getKeyWords());
+            statisticWarehouse.getStatistics()
+                    .add(new Statistics(link, statisticForOnePage));
+        });
+    }
+
+
+    public void searchLinks(SearchParams searchParams) {
+        Long maxLimit = searchParams.getLinksCount();
+        String url = searchParams.getUrl();
+        ConcurrentHashSet<String> links = linkWarehouse.getStatistics();
+        links.add(url);
+        linkCounter.incrementAndGet();
+        Set<String> tempSet = new HashSet<>();
+        tempSet.add(url);
+
+        for (int i = 0; i < searchParams.getDepth(); i++) {
+            Set<String> set = tempSet;
+            tempSet = new HashSet<>();
+            for (String link : set) {
+                Element elemented = htmlUtil.getElementFromPage(link);
+                Elements elements = linksUtil.getLinks(elemented);
+
+                for (Element element : elements) {
+                    if (maxLimit > linkCounter.get()) {
+                        tempSet.add(linksUtil.removeLinkChar(linksUtil.getHyperLink(element)));
+                        linkCounter.incrementAndGet();
+                    }
+                }
+            }
+
+            currentDepth.incrementAndGet();
+            for (String link : tempSet) {
+                if (UrlValidator.getInstance().isValid(link)) {
+                    links.putIfAbsent(link);
+                }
+            }
         }
     }
-
-
-    private SearchParams createSearchParams(String link)  {
-        return SearchParams.builder().url(link).depth(currentDepth.get()+1).linksCount(searchParams.getLinksCount()).keyWords(searchParams.getKeyWords()).build();
-    }
-
-
-    public void craw(String pageContent){
-        Set<String> links = linksUtil.getLinksFromPage(pageContent);
-        List<SearchParams> searchParamsList = links
-                .stream()
-                .parallel()
-                .filter(link -> linkWarehouse.getStatistics().putIfAbsent(link))
-                .map(this::createSearchParams)
-                .collect(Collectors.toList());
-
-        searchParamsList
-                .stream()
-                .parallel()
-                .limit(searchParams.getLinksCount() - linkLimit.get())
-                .forEach(this::startCrawling);
-    }
-
 }
+
+

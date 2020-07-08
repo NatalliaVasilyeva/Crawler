@@ -1,25 +1,28 @@
 package utils;
 
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.apache.commons.validator.routines.UrlValidator;
+import org.jsoup.select.Elements;
 
 import java.util.stream.Collectors;
 
 public class LinksUtil {
 
-    public ConcurrentHashSet<String> getLinksFromPage(String htmlBodyAsString) {
-        return Jsoup
-                .parse(htmlBodyAsString)
-                .body()
+    public String getHyperLink(Element page) {
+        return page.attr("abs:href");
+    }
+
+    public Elements getLinks(Element element) {
+        return element
                 .select("a[href]")
                 .stream()
-                .map(hyperLink -> getHyperLink(hyperLink))
-                .collect(Collectors.toCollection(ConcurrentHashSet::new));
-    }
-
-    private String getHyperLink(Element page) {
-        return page.attr("abs:href");
+                .collect(Collectors.toCollection(Elements::new));
 
     }
 
+    public String removeLinkChar(String url) {
+       return  url.split("#", 2)[0];
+    }
 }

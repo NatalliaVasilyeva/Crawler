@@ -2,8 +2,6 @@ package warehouse;
 
 import entity.Statistics;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
